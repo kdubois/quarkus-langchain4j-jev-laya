@@ -1,9 +1,9 @@
 package com.tripplanner.poc.jev;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.Config;
-import org.jboss.logging.Logger;
 
 /**
  * The single bean the rest of the application depends on. It delegates to one of the backends,
@@ -22,8 +22,6 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class ActiveDecisionClient implements DecisionClient {
 
-    private static final Logger LOG = Logger.getLogger(ActiveDecisionClient.class);
-
     private final DecisionClient delegate;
 
     @Inject
@@ -34,11 +32,11 @@ public class ActiveDecisionClient implements DecisionClient {
             case "stub" -> new StubDecisionClient();
             case "jev" -> jev;
             default -> {
-                LOG.warnf("Unknown decision.backend '%s'; using 'jev'", backend);
+                Log.warnf("Unknown decision.backend '%s'; using 'jev'", backend);
                 yield jev;
             }
         };
-        LOG.infof("Decision backend configured to '%s' (model=%s)", delegate.backend(), delegate.defaultModel());
+        Log.infof("Decision backend configured to '%s' (model=%s)", delegate.backend(), delegate.defaultModel());
     }
 
     @Override

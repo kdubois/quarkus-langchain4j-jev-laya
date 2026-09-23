@@ -106,7 +106,7 @@ curl -s -X POST http://localhost:8083/trip -H 'Content-Type: application/json' \
   -d '{"request":"How much does it cost to rent an SUV for 5 days?"}'
 
 curl -s -X POST http://localhost:8083/trip -H 'Content-Type: application/json' \
-  -d '{"request":"I need to move my pickup time on a car I booked."}'
+  -d '{"request":"Please reserve a car for next week"}'
 
 # Which backend + model is active
 curl -s http://localhost:8083/trip/backend
@@ -186,11 +186,5 @@ are returned under the same ids:
 
 Jev reference: https://docs.typesafe.ai/api. Laya: https://github.com/NandhaKishorM/laya.
 
-## Where this is headed
 
-This PoC keeps the decision model to a decision role. The same primitives map onto other agentic
-patterns already in the workshop: a confidence-thresholded guardrail (escalate to a human below a
-threshold), adaptive model selection (a **Score**/**Noul** picking base vs enhanced model), or a fast
-"cheap question before the expensive LLM move". And because the backend is a property, you can A/B
-the same agentic flow against Jev and Laya side by side.
 

@@ -1,6 +1,6 @@
 package com.tripplanner.poc.jev;
 
-import org.jboss.logging.Logger;
+import io.quarkus.logging.Log;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,8 +14,6 @@ import java.util.Map;
  * output.
  */
 public class StubDecisionClient implements DecisionClient {
-
-    private static final Logger LOG = Logger.getLogger(StubDecisionClient.class);
 
     private final String model;
 
@@ -44,7 +42,7 @@ public class StubDecisionClient implements DecisionClient {
             String state = String.valueOf(request.state());
             answers.put(entry.getKey(), answer(state, entry.getKey(), entry.getValue()));
         }
-        LOG.debugf("Stub decision answered %d question(s): %s", answers.size(), answers.keySet());
+        Log.debugf("Stub decision answered %d question(s): %s", answers.size(), answers.keySet());
         return new JevResponse(model, answers, new JevResponse.JevUsage(120, 8));
     }
 
