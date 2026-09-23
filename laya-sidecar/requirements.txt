@@ -1,0 +1,5 @@
+# Laya + its inference stack (pulls torch, transformers, huggingface-hub, safetensors, numpy)
+laya
+# HTTP server for the sidecar
+fastapi
+uvicorn[standard]
