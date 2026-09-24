@@ -39,14 +39,21 @@ public class TripResource {
         }
         String reply = tripAdvisorSystem.planTrip(request);
         RouteAudit.AuditEntry decisionEntry = routeAudit.latest();
+        // The backend/model/live fields report the decision backend that actually answered the
+        // request (from the audit entry), which may be the stub even when a real model is
+        // configured. Falls back to the configured backend if no audit entry exists.
+        String effectiveBackend = decisionEntry != null && decisionEntry.effectiveBackend() != null
+                ? decisionEntry.effectiveBackend()
+                : decision.backend();
+        String model = "stub".equals(effectiveBackend) ? "stub" : decision.defaultModel();
         TripResponse response = new TripResponse(
                 request,
                 reply,
                 decisionEntry == null ? null : decisionEntry.route(),
                 decisionEntry == null ? null : decisionEntry.rawChoice(),
-                decision.backend(),
-                decision.defaultModel(),
-                !decision.backend().equals("stub"));
+                effectiveBackend,
+                model,
+                !"stub".equals(effectiveBackend));
         return Response.ok(response).build();
     }
 

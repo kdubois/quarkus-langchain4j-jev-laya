@@ -26,6 +26,9 @@ public class LayaDecisionClient implements DecisionClient {
 
     private final StubDecisionClient stub = new StubDecisionClient();
 
+    /** Backend that answered the last {@link #evaluate(JevRequest)} call ({@code laya} or {@code stub}). */
+    private volatile String lastEffectiveBackend = "laya";
+
     @Override
     public String defaultModel() {
         return model;
@@ -39,10 +42,17 @@ public class LayaDecisionClient implements DecisionClient {
     @Override
     public JevResponse evaluate(JevRequest request) {
         try {
+            lastEffectiveBackend = "laya";
             return restClient.evaluate(request);
         } catch (Exception e) {
             Log.warnf("Laya sidecar call failed (%s); falling back to stub", e.getMessage());
+            lastEffectiveBackend = "stub";
             return stub.evaluate(request);
         }
+    }
+
+    @Override
+    public String lastEffectiveBackend() {
+        return lastEffectiveBackend;
     }
 }

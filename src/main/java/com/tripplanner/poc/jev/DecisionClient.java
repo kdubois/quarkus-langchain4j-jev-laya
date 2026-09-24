@@ -30,6 +30,14 @@ public interface DecisionClient {
     String backend();
 
     /**
+     * The backend that answered the most recent {@link #evaluate(JevRequest)} call. Equals
+     * {@link #backend()} unless the call fell back to the stub, in which case it is {@code stub}.
+     */
+    default String lastEffectiveBackend() {
+        return backend();
+    }
+
+    /**
      * Convenience for a single Choice question. Returns the chosen option.
      */
     default String choose(String state, String questionId, JevQuestion question) {

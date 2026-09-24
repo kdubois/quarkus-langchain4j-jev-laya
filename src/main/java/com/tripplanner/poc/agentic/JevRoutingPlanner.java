@@ -11,7 +11,7 @@ import dev.langchain4j.agentic.planner.Planner;
 import dev.langchain4j.agentic.planner.PlanningContext;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import io.quarkus.arc.Arc;
-import org.jboss.logging.Logger;
+import io.quarkus.logging.Log;
 
 import java.util.Map;
 
@@ -27,8 +27,6 @@ import java.util.Map;
  * because the framework instantiates a {@code @PlannerSupplier} before the container is usable.
  */
 public class JevRoutingPlanner implements Planner {
-
-    private static final Logger LOG = Logger.getLogger(JevRoutingPlanner.class);
 
     private AgentInstance reservationAgent;
     private AgentInstance weatherAgent;
@@ -66,7 +64,7 @@ public class JevRoutingPlanner implements Planner {
         JevRouter.RouteDecision decision = router.route(request);
         scope.writeState("route", decision.route());
         scope.writeState("rawChoice", decision.rawChoice());
-        LOG.infof("Jev routing decision: route=%s, rawChoice=%s", decision.route(), decision.rawChoice());
+        Log.infof("Jev routing decision: route=%s, rawChoice=%s", decision.route(), decision.rawChoice());
 
         return call(pickSubagent(decision));
     }

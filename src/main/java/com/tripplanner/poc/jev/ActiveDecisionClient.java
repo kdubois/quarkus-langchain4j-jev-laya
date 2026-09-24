@@ -53,4 +53,9 @@ public class ActiveDecisionClient implements DecisionClient {
     public String backend() {
         return delegate.backend();
     }
+
+    @Override
+    public String lastEffectiveBackend() {
+        return delegate.lastEffectiveBackend();
+    }
 }

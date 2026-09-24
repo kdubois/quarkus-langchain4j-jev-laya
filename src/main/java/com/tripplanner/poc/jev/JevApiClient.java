@@ -29,6 +29,9 @@ public class JevApiClient implements DecisionClient {
 
     private final StubDecisionClient stub = new StubDecisionClient();
 
+    /** Backend that answered the last {@link #evaluate(JevRequest)} call ({@code jev} or {@code stub}). */
+    private volatile String lastEffectiveBackend = "jev";
+
     @Override
     public String defaultModel() {
         return model;
@@ -47,13 +50,21 @@ public class JevApiClient implements DecisionClient {
     public JevResponse evaluate(JevRequest request) {
         if (!isConfigured()) {
             Log.debug("Jev API key not configured; falling back to the deterministic stub");
+            lastEffectiveBackend = "stub";
             return stub.evaluate(request);
         }
         try {
+            lastEffectiveBackend = "jev";
             return restClient.evaluate("Bearer " + apiKey.get(), request);
         } catch (Exception e) {
             Log.warnf("Jev call failed (%s); falling back to stub", e.getMessage());
+            lastEffectiveBackend = "stub";
             return stub.evaluate(request);
         }
+    }
+
+    @Override
+    public String lastEffectiveBackend() {
+        return lastEffectiveBackend;
     }
 }

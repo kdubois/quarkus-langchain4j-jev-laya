@@ -36,9 +36,8 @@ which answers it, and the answer is validated before it is returned.
    cheap, calibrated decision rather than a chat call.
 2. **A decision model as an output guardrail.** Each specialist's reply is checked by
    [`JevReplyGuardrail`](src/main/java/com/tripplanner/poc/guardrails/JevReplyGuardrail.java), an
-   `OutputGuardrail` driven by a **Noul** (yes/no) decision plus its confidence: pass when the model is
-   confident the reply addresses the request, retry when confident it does not, and pass-and-flag when
-   uncertain.
+   `OutputGuardrail` driven by a **Noul** (yes/no) probability: pass when it is clearly above 0.5,
+   retry when clearly below, and pass-and-flag when it is within the margin of 0.5 (or missing).
 3. **Backend choice + graceful fallback.** The decision backend is a property
    (`decision.backend` = `jev` | `laya` | `stub`). Every backend degrades to a deterministic
    [`StubDecisionClient`](src/main/java/com/tripplanner/poc/jev/StubDecisionClient.java) when the model
@@ -127,10 +126,11 @@ A response looks like:
 ```
 
 `route` is the normalized specialist the request was sent to; `rawChoice` is the model's original
-option. `backend`/`model`/`live` report the **configured** backend (and `live` is true when that
-backend is a real model rather than the stub). When a configured model is unreachable on a request,
-the app still answers via the stub and logs the fallback, e.g. `Laya sidecar call failed ...;
-falling back to stub`.
+option. `backend`/`model`/`live` report the backend that **actually answered** the request, so a
+fallback to the stub shows up as `backend: "stub"`, `live: false`. When a configured model is
+unreachable on a request, the app still answers via the stub and logs the fallback, e.g. `Laya
+sidecar call failed ...; falling back to stub`. The `GET /trip/backend` endpoint reports the
+**configured** backend instead, since it is an identity endpoint.
 
 ## Test it
 

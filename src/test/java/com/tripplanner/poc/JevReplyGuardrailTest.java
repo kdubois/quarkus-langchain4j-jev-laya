@@ -75,10 +75,26 @@ class JevReplyGuardrailTest {
 
     @Test
     void passesAndFlagsWhenModelIsUncertain() {
-        // Noul of 0.6 means confidence = |0.6-0.5|*2 = 0.2, below the threshold: pass and flag.
-        OutputGuardrailResult result = guardrail(0.6).validate(
+        // Noul of 0.52 is within DECISION_MARGIN (0.1) of the 0.5 boundary: pass and flag.
+        OutputGuardrailResult result = guardrail(0.52).validate(
                 request("Maybe, I think it is fine.", "Is the car insured?"));
         assertFalse(result.isRetry());
+    }
+
+    @Test
+    void passesWhenModelIsJustConfidentEnough() {
+        // Noul of 0.61 is more than DECISION_MARGIN above 0.5: decisive pass.
+        OutputGuardrailResult result = guardrail(0.61).validate(
+                request("Yes, the car is fully insured.", "Is the car insured?"));
+        assertFalse(result.isRetry());
+    }
+
+    @Test
+    void retriesWhenModelIsJustConfidentTheReplyIsWrong() {
+        // Noul of 0.39 is more than DECISION_MARGIN below 0.5: decisive retry.
+        OutputGuardrailResult result = guardrail(0.39).validate(
+                request("Our office is closed on weekends.", "How do I cancel my reservation?"));
+        assertTrue(result.isRetry());
     }
 
     @Test

@@ -48,8 +48,9 @@ public class JevRouter {
 
         String chosen = decision.choose(request, "route",
                 JevQuestion.choice("Which specialist should handle this customer request?", criteria));
+        String effectiveBackend = decision.lastEffectiveBackend();
         RouteDecision decision = decide(chosen);
-        routeAudit.log(request, decision.route(), decision.rawChoice());
+        routeAudit.log(request, decision.route(), decision.rawChoice(), effectiveBackend);
         return decision;
     }
 
