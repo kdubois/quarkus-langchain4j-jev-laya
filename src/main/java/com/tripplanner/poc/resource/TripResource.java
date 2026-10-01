@@ -4,6 +4,7 @@ import com.tripplanner.poc.agentic.TripAdvisorSystem;
 import com.tripplanner.poc.guardrails.RouteAudit;
 import com.tripplanner.poc.jev.ActiveDecisionClient;
 import com.tripplanner.poc.model.TripResponse;
+import dev.langchain4j.guardrail.OutputGuardrailException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -37,7 +38,19 @@ public class TripResource {
                     .entity(Map.of("error", "missing_request", "message", "'request' is required."))
                     .build();
         }
-        String reply = tripAdvisorSystem.planTrip(request);
+        String reply;
+        try {
+            reply = tripAdvisorSystem.planTrip(request);
+        } catch (RuntimeException e) {
+            if (!isGuardrailRejection(e)) {
+                throw e;
+            }
+            // Every retry was rejected by the reply guardrail: report it instead of a bare 500.
+            return Response.status(502)
+                    .entity(Map.of("error", "reply_rejected",
+                            "message", "The drafted reply was rejected by the reply guardrail after all retries."))
+                    .build();
+        }
         RouteAudit.AuditEntry decisionEntry = routeAudit.latest();
         // The backend/model/live fields report the decision backend that actually answered the
         // request (from the audit entry), which may be the stub even when a real model is
@@ -50,11 +63,23 @@ public class TripResource {
                 request,
                 reply,
                 decisionEntry == null ? null : decisionEntry.route(),
+                decisionEntry == null ? null : decisionEntry.routes(),
+                decisionEntry == null ? null : decisionEntry.mode(),
                 decisionEntry == null ? null : decisionEntry.rawChoice(),
+                decisionEntry == null ? null : decisionEntry.confidence(),
                 effectiveBackend,
                 model,
                 !"stub".equals(effectiveBackend));
         return Response.ok(response).build();
+    }
+
+    private static boolean isGuardrailRejection(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof OutputGuardrailException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @GET

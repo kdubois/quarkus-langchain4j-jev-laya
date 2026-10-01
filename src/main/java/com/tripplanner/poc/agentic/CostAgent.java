@@ -1,10 +1,13 @@
 package com.tripplanner.poc.agentic;
 
+import com.tripplanner.poc.guardrails.JevReplyGuardrail;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.guardrail.OutputGuardrails;
 
 /**
- * Handles pricing, budget and cost-comparison questions.
+ * Handles pricing, budget and cost-comparison questions. The reply is validated by the Jev
+ * output guardrail.
  */
 public interface CostAgent {
 
@@ -18,5 +21,6 @@ public interface CostAgent {
             """)
     @Agent(description = "Answers pricing, total cost, budget, or fee questions",
            outputKey = "reply")
+    @OutputGuardrails(value = JevReplyGuardrail.class, maxRetries = 2)
     String answer(String request);
 }

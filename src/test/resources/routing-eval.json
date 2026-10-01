@@ -1,0 +1,33 @@
+[
+  {"group": "single", "request": "Will it rain in Lisbon next Tuesday?", "expected": ["weather"]},
+  {"group": "single", "request": "What's the forecast for Edinburgh this weekend?", "expected": ["weather"]},
+  {"group": "single", "request": "How much does it cost to rent an SUV for 5 days?", "expected": ["cost"]},
+  {"group": "single", "request": "What's the fee for returning the car at a different location?", "expected": ["cost"]},
+  {"group": "single", "request": "Please reserve a car for next week", "expected": ["reservation"]},
+  {"group": "single", "request": "I need to cancel my booking for Friday.", "expected": ["reservation"]},
+  {"group": "single", "request": "Hi there!", "expected": ["general"]},
+  {"group": "single", "request": "Thanks, that's all I needed.", "expected": ["general"]},
+
+  {"group": "indirect", "request": "Will I need snow chains to drive to Chamonix in January?", "expected": ["weather"]},
+  {"group": "indirect", "request": "Is the young-driver surcharge included in the quote you sent me?", "expected": ["cost"]},
+  {"group": "indirect", "request": "Can I push my pick-up time from 9 to 11?", "expected": ["reservation"]},
+  {"group": "indirect", "request": "Do you have electric cars at the Porto airport branch?", "expected": ["reservation"], "acceptable": [["general"]]},
+  {"group": "indirect", "request": "Is a weekly rental cheaper than paying day by day?", "expected": ["cost"]},
+  {"group": "indirect", "request": "Can I bring my dog in the rental car?", "expected": ["general"], "acceptable": [["reservation"]]},
+  {"group": "indirect", "request": "What documents do I need to bring to pick up the car?", "expected": ["reservation"], "acceptable": [["general"]]},
+
+  {"group": "multi", "request": "Is it worth upgrading to a convertible for a weekend in Nice if it might rain?", "expected": ["weather", "cost"], "acceptable": [["weather", "cost", "reservation"]]},
+  {"group": "multi", "request": "How much extra is a convertible, and will the weather in Nice be good enough next weekend?", "expected": ["weather", "cost"], "acceptable": [["weather", "cost", "reservation"]]},
+  {"group": "multi", "request": "Book me a car for Saturday and tell me what it'll cost with full insurance.", "expected": ["reservation", "cost"]},
+  {"group": "multi", "request": "Should I pick up the car Friday or Saturday given the storm forecast?", "expected": ["weather", "reservation"]},
+  {"group": "multi", "request": "I want to extend my rental by two days; how much more is that?", "expected": ["reservation", "cost"]},
+  {"group": "multi", "request": "What's the cheapest car that can handle snowy mountain roads in February?", "expected": ["cost", "weather"], "acceptable": [["cost", "weather", "reservation"]]},
+  {"group": "multi", "request": "Can I change my booking to a 4x4, and will I need one for the weather in the Highlands?", "expected": ["reservation", "weather"], "acceptable": [["reservation", "weather", "cost"]]},
+  {"group": "multi", "request": "Give me the total for a week in Seville in August, and will it be too hot to drive without air conditioning?", "expected": ["cost", "weather"]},
+
+  {"group": "general", "request": "What's your company's phone number?", "expected": ["general"]},
+  {"group": "general", "request": "Can you recommend a good restaurant in Lisbon?", "expected": ["general"]},
+  {"group": "general", "request": "Do you offer jobs for drivers?", "expected": ["general"]},
+  {"group": "general", "request": "What are your opening hours at Lisbon airport?", "expected": ["general"], "acceptable": [["reservation"]]},
+  {"group": "general", "request": "How long does it take to drive from Lisbon to Porto?", "expected": ["general"]}
+]

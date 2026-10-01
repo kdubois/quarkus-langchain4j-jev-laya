@@ -38,6 +38,15 @@ public interface DecisionClient {
     }
 
     /**
+     * Asks several questions about the same state in one call. Returns the answers keyed by
+     * question id (an id is missing if the backend returned no answer for it).
+     */
+    default Map<String, JevAnswer> ask(String state, Map<String, JevQuestion> questions) {
+        JevResponse response = evaluate(new JevRequest(state, defaultModel(), questions));
+        return response.answers() == null ? Map.of() : response.answers();
+    }
+
+    /**
      * Convenience for a single Choice question. Returns the chosen option.
      */
     default String choose(String state, String questionId, JevQuestion question) {

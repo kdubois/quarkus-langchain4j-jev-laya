@@ -1,5 +1,6 @@
 package com.tripplanner.poc;
 
+import com.tripplanner.poc.guardrails.JevCompleteReplyGuardrail;
 import com.tripplanner.poc.guardrails.JevReplyGuardrail;
 import com.tripplanner.poc.jev.DecisionClient;
 import com.tripplanner.poc.jev.JevQuestion;
@@ -9,6 +10,8 @@ import dev.langchain4j.guardrail.OutputGuardrailRequest;
 import dev.langchain4j.guardrail.OutputGuardrailResult;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JevReplyGuardrailTest {
 
     /** A DecisionClient that returns a canned Noul value for any question. */
-    static final class FakeDecisionClient implements DecisionClient {
+    static class FakeDecisionClient implements DecisionClient {
         private final Double noulValue;
 
         FakeDecisionClient(Double noulValue) {
@@ -101,5 +104,27 @@ class JevReplyGuardrailTest {
     void passesBlankReplies() {
         OutputGuardrailResult result = guardrail(0.1).validate(request("   ", "Hi"));
         assertFalse(result.isRetry());
+    }
+
+    @Test
+    void specialistAndMergeGuardrailsAskDifferentQuestions() {
+        List<Object> asked = new ArrayList<>();
+        DecisionClient recording = new FakeDecisionClient(0.9) {
+            @Override
+            public Double noul(String state, String questionId, JevQuestion question) {
+                asked.add(question.instructions());
+                return super.noul(state, questionId, question);
+            }
+        };
+        JevReplyGuardrail relevance = new JevReplyGuardrail();
+        relevance.setDecisionClient(recording);
+        JevCompleteReplyGuardrail completeness = new JevCompleteReplyGuardrail();
+        completeness.setDecisionClient(recording);
+
+        relevance.validate(request("Hello! How can I help?", "Hi there!"));
+        completeness.validate(request("Sunny, and the upgrade is 35 euros a day.", "Weather and price?"));
+
+        assertTrue(String.valueOf(asked.get(0)).contains("at least one thing"));
+        assertTrue(String.valueOf(asked.get(1)).contains("directly address"));
     }
 }

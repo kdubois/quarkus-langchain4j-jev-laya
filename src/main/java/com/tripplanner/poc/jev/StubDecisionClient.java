@@ -141,6 +141,11 @@ public class StubDecisionClient implements DecisionClient {
         if (state == null || state.isBlank()) {
             return new JevAnswer("noul", null, 0.0, null, null, null, 0.0);
         }
+        // Routing asks one "needs_<specialist>" question per specialist: yes when its keywords match.
+        if (questionId.startsWith("needs_")) {
+            double value = keywordScore(state, questionId.substring("needs_".length())) > 0 ? 0.9 : 0.1;
+            return new JevAnswer("noul", null, value, null, null, null, 0.9);
+        }
         String lower = state.toLowerCase(Locale.ROOT);
         boolean problematic = lower.contains("todo") || lower.contains("null")
                 || lower.contains("error") || lower.contains("i don't know")

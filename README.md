@@ -14,7 +14,7 @@ backends, selected with one property (`decision.backend`):
 
 | Backend | What it is | Needs |
 |---------|-----------|-------|
-| `jev` (default) | the hosted **TypeSafe Jev** endpoint over HTTP | a `JEV_API_KEY` |
+| `jev` (default) | the hosted **TypeSafe Jev** endpoint over HTTP | a `TYPESAFE_API_KEY` |
 | `laya` | a self-hosted **Laya** sidecar over HTTP (open source, Apache 2.0) | the sidecar running |
 | `stub` | a deterministic offline stand-in | nothing |
 
@@ -23,27 +23,36 @@ response schema, so the agentic system is written once and can be pointed at eit
 chosen backend is unavailable (no key, sidecar down), the app falls back to the stub and keeps
 answering, rather than failing the request.
 
-The system is a car-rental "trip advisor": a customer request is routed to the right specialist,
-which answers it, and the answer is validated before it is returned.
+The system is a car-rental "trip advisor": a customer request is routed to the right specialist
+(or to several, when it mixes intents), the specialists answer it, and the answer is validated
+before it is returned.
 
 ## What it demonstrates
 
 1. **A decision model as an agentic Planner (router).** The top-level `@PlannerAgent` uses a custom
    [`JevRoutingPlanner`](src/main/java/com/tripplanner/poc/agentic/JevRoutingPlanner.java)
-   instead of the framework's LLM-driven supervisor. On each request it reads the customer message,
-   asks the model a single **Choice** question ("which specialist?"), and dispatches exactly the
-   matching sub-agent. This mirrors the built-in `SupervisorPlanner`, but the routing intelligence is a
-   cheap, calibrated decision rather than a chat call.
-2. **A decision model as an output guardrail.** Each specialist's reply is checked by
-   [`JevReplyGuardrail`](src/main/java/com/tripplanner/poc/guardrails/JevReplyGuardrail.java), an
-   `OutputGuardrail` driven by a **Noul** (yes/no) probability: pass when it is clearly above 0.5,
-   retry when clearly below, and pass-and-flag when it is within the margin of 0.5 (or missing).
-3. **Backend choice + graceful fallback.** The decision backend is a property
+   instead of the framework's LLM-driven supervisor. On each request it makes one decision call that
+   asks a **Choice** ("which specialist?") plus one **Noul** per specialist ("does this request need
+   weather / cost / reservation input?"). See [Routing](#routing) for the policy and the eval behind it.
+2. **Fan-out for multi-intent requests.** When several specialists are needed, the planner calls them
+   one after the other, a non-AI
+   [`SpecialistRepliesCollector`](src/main/java/com/tripplanner/poc/agentic/SpecialistRepliesCollector.java)
+   gathers their replies, and a [`MergeAgent`](src/main/java/com/tripplanner/poc/agentic/MergeAgent.java)
+   combines them into one answer.
+3. **A decision model as an output guardrail.** Replies are checked by an `OutputGuardrail` driven by
+   a **Noul** (yes/no) probability: pass when it is clearly above 0.5, retry when clearly below, and
+   pass-and-flag when it is within the margin of 0.5 (or missing). There are two:
+   [`JevReplyGuardrail`](src/main/java/com/tripplanner/poc/guardrails/JevReplyGuardrail.java) on each
+   specialist checks that the reply answers at least one thing the customer asked or said (a fan-out
+   specialist only answers its part, and a greeting has no request), and
+   [`JevCompleteReplyGuardrail`](src/main/java/com/tripplanner/poc/guardrails/JevCompleteReplyGuardrail.java)
+   on the merged reply checks that it covers the whole request.
+4. **Backend choice + graceful fallback.** The decision backend is a property
    (`decision.backend` = `jev` | `laya` | `stub`). Every backend degrades to a deterministic
    [`StubDecisionClient`](src/main/java/com/tripplanner/poc/jev/StubDecisionClient.java) when the model
    is unavailable, so the whole agentic flow — routing + guardrail — always runs and stays testable
    without a key, a network, or a downloaded model.
-4. **Swapping the model without touching the agents.** Because the router, guardrail, and REST layer
+5. **Swapping the model without touching the agents.** Because the router, guardrail, and REST layer
    all depend on the [`DecisionClient`](src/main/java/com/tripplanner/poc/jev/DecisionClient.java)
    interface (resolved by [`ActiveDecisionClient`](src/main/java/com/tripplanner/poc/jev/ActiveDecisionClient.java)),
    pointing the PoC at Laya instead of Jev is a configuration change, not a code change.
@@ -61,18 +70,22 @@ are ordinary LangChain4j agentic `@Agent`s backed by the configured LLM, so the 
 | `jev/LayaDecisionClient` | Self-hosted Laya sidecar backend (HTTP) |
 | `jev/StubDecisionClient` | Deterministic offline fallback |
 | `jev/JevRequest`, `JevQuestion`, `JevResponse`, `JevAnswer` | Request/response records (shared by all backends) |
-| `agentic/JevRoutingPlanner`, `JevRouter` | Decision-model-driven planner / router |
+| `agentic/JevRoutingPlanner`, `JevRouter` | Decision-model-driven planner / router and routing policy |
 | `agentic/TripAdvisorSystem` | Top-level `@PlannerAgent` wiring the sub-agents |
-| `agentic/*Agent` | The four specialist LLM agents |
-| `guardrails/JevReplyGuardrail`, `RouteAudit` | Decision output guardrail + decision history |
+| `agentic/*Agent` | The four specialist LLM agents, plus `MergeAgent` for fan-outs |
+| `agentic/SpecialistRepliesCollector` | Non-AI agent that collects specialist replies during a fan-out |
+| `guardrails/JevReplyGuardrail`, `JevCompleteReplyGuardrail` | Decision output guardrails (relevance / completeness) |
+| `guardrails/RouteAudit` | Decision history |
+| `src/test/resources/routing-eval.json`, `eval/RoutingEvalTest` | Labelled routing requests and the live eval |
+| `docs/eval/` | Eval reports from live Jev runs |
 | `resource/TripResource` | REST entry point |
 | `laya-sidecar/` | The Python FastAPI service that hosts Laya |
 
 ## Requirements
 
-- Java 21+, Maven 3.8+
+- Java 25+ (`maven.compiler.release` is 25), Maven 3.8+
 - An `OPENAI_API_KEY` (or any OpenAI-compatible key) for the specialist agents' answers
-- For the **`jev`** backend: a `JEV_API_KEY` (see https://docs.typesafe.ai/). Without it, requests fall
+- For the **`jev`** backend: a `TYPESAFE_API_KEY` (`JEV_API_KEY` also works) (see https://docs.typesafe.ai/). Without it, requests fall
   back to the stub.
 - For the **`laya`** backend: Python 3.10+ and the sidecar running (see [laya-sidecar/](laya-sidecar/)).
   First run downloads the Laya checkpoint from Hugging Face.
@@ -83,7 +96,7 @@ are ordinary LangChain4j agentic `@Agent`s backed by the configured LLM, so the 
 export OPENAI_API_KEY=sk-...          # required for the LLM answers
 
 # Backend 1: hosted Jev (set the key to use the live endpoint, otherwise it stubs)
-export JEV_API_KEY=ts-...
+export TYPESAFE_API_KEY=ts-...
 ./mvnw quarkus:dev
 
 # Backend 2: Laya (in a second terminal, start the sidecar, then point the app at it)
@@ -115,18 +128,23 @@ A response looks like:
 
 ```json
 {
-  "request": "Will it rain in Lisbon next Tuesday?",
+  "request": "Book me a car for Saturday and tell me what it'll cost with full insurance.",
   "reply": "...",
-  "route": "weather",
-  "rawChoice": "weather",
-  "backend": "stub",
-  "model": "stub",
-  "live": false
+  "route": "cost",
+  "routes": ["cost", "reservation"],
+  "routingMode": "fan-out",
+  "rawChoice": "reservation",
+  "confidence": 0.96,
+  "backend": "jev",
+  "model": "jev-latest",
+  "live": true
 }
 ```
 
-`route` is the normalized specialist the request was sent to; `rawChoice` is the model's original
-option. `backend`/`model`/`live` report the backend that **actually answered** the request, so a
+`routes` are the specialists that answered, in order, and `route` is the first of them.
+`routingMode` says which part of the policy decided: `needs` (one specialist's Noul passed),
+`fan-out` (several did), `choice` (none did, so the Choice decided), or `fallback` (no usable answer).
+`rawChoice` and `confidence` are the Choice answer, reported even when the Nouls decided. `backend`/`model`/`live` report the backend that **actually answered** the request, so a
 fallback to the stub shows up as `backend: "stub"`, `live: false`. When a configured model is
 unreachable on a request, the app still answers via the stub and logs the fallback, e.g. `Laya
 sidecar call failed ...; falling back to stub`. The `GET /trip/backend` endpoint reports the
@@ -134,13 +152,58 @@ sidecar call failed ...; falling back to stub`. The `GET /trip/backend` endpoint
 
 ## Test it
 
-The test suite runs **without** a Jev key and without any LLM — it verifies the routing decision,
-the planner's sub-agent selection, the stub client, and all three guardrail branches (pass / retry /
-uncertain):
+The test suite runs **without** a Jev key and without any LLM. It verifies the routing policy
+(using answer values captured from live Jev), the planner's sub-agent selection, the stub client,
+response deserialization, and all three guardrail branches (pass / retry / uncertain):
 
 ```bash
 ./mvnw test
 ```
+
+The routing eval is opt-in, because it calls a live model. It sends each request in
+`src/test/resources/routing-eval.json` to the model once and scores several policies on the answers,
+writing the report to `target/routing-eval-<backend>.md`:
+
+```bash
+./mvnw test -Dtest=RoutingEvalTest -Drouting.eval=true                              # Jev, needs TYPESAFE_API_KEY
+./mvnw test -Dtest=RoutingEvalTest -Drouting.eval=true -Drouting.eval.backend=laya  # Laya sidecar on :8100
+```
+
+## Routing
+
+Each request is one decision call with four questions: the routing Choice and a Noul per specialist.
+[`JevRouter.decide`](src/main/java/com/tripplanner/poc/agentic/JevRouter.java) then:
+
+1. calls every specialist whose Noul is above `routing.fan-out-threshold` (0.5), most likely first;
+2. when none is, uses the Choice (this is where greetings and general questions end up).
+
+The Choice is not used as a fast path. On the 28 labelled requests in the eval (Jev `jev-1.13.0`,
+median 278 ms per call; Laya `laya-typed-decisions` on the sidecar, median 76 ms on a laptop):
+
+| Policy | Jev multi-intent (8) | Jev total | Laya multi-intent (8) | Laya total |
+|---|---|---|---|---|
+| Choice only | 0 | 20/28 | 0 | 18/28 |
+| Choice decides alone when confidence ≥ 0.8, else Nouls | 5 | 25/28 | 1 | 19/28 |
+| Nouls first, then Choice (current) | 8 | 26/28 | 1 | 19/28 |
+
+The Choice was confident (0.90 to 0.99) about a single specialist for requests that clearly needed
+two, such as "Book me a car for Saturday and tell me what it'll cost", and since the Nouls come back
+in the same call, skipping them saves nothing. The two misses of the current policy are single-intent
+cost questions where the reservation Noul also passes, so the reply merges in a reservation answer
+that was not needed.
+
+The per-specialist Nouls only help when the model separates "needed" from "not needed". With Jev,
+the second intent of a two-part request scored 0.54 to 0.92, and unrelated weather and cost Nouls
+stayed at 0.30 or below. The exception is the reservation Noul, which reached 0.84 on cost questions
+about a booking. Laya's Nouls for these questions are compressed: the second intent scored 0.19 to
+0.47 and unrelated specialists up to 0.38, so no threshold separates them and Laya mostly falls back
+to the Choice. Full reports:
+[`docs/eval/`](docs/eval/).
+
+Specialists in a fan-out run sequentially, so a fan-out takes about one extra LLM call per
+specialist plus the merge (6 to 12 s against 2 to 4 s for a single route). The agentic module can run
+agents in parallel, but in this version a custom planner cannot safely schedule a follow-up step
+(the merge) after parallel agents.
 
 ## The Laya sidecar
 
@@ -166,11 +229,13 @@ device, set `LAYA_MODEL` / `LAYA_DEVICE` before starting. Then point the Quarkus
 | Property | Default | Meaning |
 |----------|---------|---------|
 | `decision.backend` | `jev` | `jev` \| `laya` \| `stub` — which decision model to use. |
-| `jev.api-key` | *(empty)* | Bearer key for the Jev API. Empty → deterministic stub. |
+| `jev.api-key` | `${TYPESAFE_API_KEY}`, then `${JEV_API_KEY}` | Bearer key for the Jev API. Empty → deterministic stub. |
 | `jev.endpoint` | `https://api.typesafe.ai/v1/systemone` | Jev System One endpoint. |
 | `jev.model` | `jev-latest` | Jev model alias. |
 | `laya.endpoint` | `http://localhost:8100/v1/decision` | Laya sidecar endpoint. |
 | `laya.model` | `laya` | Label reported for the Laya backend. |
+| `routing.fan-out-threshold` | `0.5` | Noul probability above which a specialist is called. |
+| `quarkus.rest-client.jev.read-timeout` | `5000` | Jev read timeout in ms; a timed-out call falls back to the stub. |
 | `quarkus.langchain4j.openai.api-key` | — | LLM key for the specialist agents. |
 | `quarkus.langchain4j.openai.chat-model.model-name` | `gpt-4o` | LLM used by the specialists. |
 
@@ -180,9 +245,11 @@ A decision request is one `POST` (to Jev's `/v1/systemone` or the Laya sidecar's
 a `state`, a `model`, and a `questions` map. Each question is one of the three primitives and answers
 are returned under the same ids:
 
-- **Choice** — pick an option. Returns `choice`, `probabilities`, `confidence`. (Used for routing.)
+- **Choice** — pick an option. Returns `choice`, `probabilities`, `confidence`. (Used for routing
+  when no specialist's Noul passes.)
 - **Score** — rate on a rubric. Returns `score`, `legend`, `probabilities`, `confidence`.
-- **Noul** — yes/no probability in `[0, 1]`. (Used for the reply guardrail.)
+- **Noul** — yes/no probability in `[0, 1]`. (Used for the per-specialist routing questions and the
+  reply guardrails.)
 
 Jev reference: https://docs.typesafe.ai/api. Laya: https://github.com/NandhaKishorM/laya.
 

@@ -1,6 +1,7 @@
 package com.tripplanner.poc.jev;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
 
@@ -8,5 +9,6 @@ import java.util.Map;
 public record JevResponse(String model, Map<String, JevAnswer> answers, JevUsage usage) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record JevUsage(Integer inputTokens, Integer outputTokens) {}
+    public record JevUsage(@JsonProperty("input_tokens") Integer inputTokens,
+                           @JsonProperty("output_tokens") Integer outputTokens) {}
 }

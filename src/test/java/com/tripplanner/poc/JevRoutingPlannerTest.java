@@ -52,10 +52,6 @@ class JevRoutingPlannerTest {
         planner.init(initContext);
     }
 
-    private JevRouter.RouteDecision decision(String route) {
-        return new JevRouter.RouteDecision(route, route);
-    }
-
     @Test
     void usesRouterTopology() {
         assertEquals(AgenticSystemTopology.ROUTER, planner.topology());
@@ -63,23 +59,23 @@ class JevRoutingPlannerTest {
 
     @Test
     void picksWeatherAgentForWeatherRoute() {
-        assertSame(weatherAgent, planner.pickSubagent(decision(JevRouter.ROUTE_WEATHER)));
+        assertSame(weatherAgent, planner.pickSubagent(JevRouter.ROUTE_WEATHER));
     }
 
     @Test
     void picksReservationAgentForReservationRoute() {
-        assertSame(reservationAgent, planner.pickSubagent(decision(JevRouter.ROUTE_RESERVATION)));
+        assertSame(reservationAgent, planner.pickSubagent(JevRouter.ROUTE_RESERVATION));
     }
 
     @Test
     void picksCostAgentForCostRoute() {
-        assertSame(costAgent, planner.pickSubagent(decision(JevRouter.ROUTE_COST)));
+        assertSame(costAgent, planner.pickSubagent(JevRouter.ROUTE_COST));
     }
 
     @Test
     void picksGeneralAgentForGeneralOrUnrecognizedRoute() {
-        assertSame(generalAgent, planner.pickSubagent(decision(JevRouter.ROUTE_GENERAL)));
-        assertSame(generalAgent, planner.pickSubagent(decision("something-else")));
+        assertSame(generalAgent, planner.pickSubagent(JevRouter.ROUTE_GENERAL));
+        assertSame(generalAgent, planner.pickSubagent("something-else"));
     }
 
     @Test
@@ -91,7 +87,7 @@ class JevRoutingPlannerTest {
         JevRoutingPlanner p = new JevRoutingPlanner();
         p.init(initContext);
         // Weather is wired, the unknown sub-agent is ignored.
-        assertSame(weatherAgent, p.pickSubagent(decision(JevRouter.ROUTE_WEATHER)));
-        assertNull(p.pickSubagent(decision(JevRouter.ROUTE_COST)));
+        assertSame(weatherAgent, p.pickSubagent(JevRouter.ROUTE_WEATHER));
+        assertNull(p.pickSubagent(JevRouter.ROUTE_COST));
     }
 }
