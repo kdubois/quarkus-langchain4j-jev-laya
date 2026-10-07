@@ -16,9 +16,9 @@ public interface ReservationAgent {
             bookings, modifications, cancellations and pick-up details. If a detail is not given,
             ask a short clarifying question rather than inventing specifics.
 
-            Customer request: {request}
+            Customer request: {{request}}
             """)
-    @Agent(description = "Handles booking, modifying, cancelling, or questions about a reservation",
+    @Agent(name = "reservation", description = "Handles booking, modifying, cancelling, or questions about a reservation",
            outputKey = "reply")
     @OutputGuardrails(value = JevReplyGuardrail.class, maxRetries = 2)
     String answer(String request);

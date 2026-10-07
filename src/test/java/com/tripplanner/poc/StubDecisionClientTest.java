@@ -82,6 +82,23 @@ class StubDecisionClientTest {
     }
 
     @Test
+    void answersTheCoreDecisionRouterQuestionsIndependently() {
+        JevResponse response = client.evaluate(new JevRequest(
+                "Book a car and tell me the price",
+                "stub",
+                Map.of(
+                        "reservation", JevQuestion.noul("Should reservation handle this request?"),
+                        "weather", JevQuestion.noul("Should weather handle this request?"),
+                        "cost", JevQuestion.noul("Should cost handle this request?"),
+                        "general", JevQuestion.noul("Should general handle this request?"))));
+
+        assertTrue(response.answers().get("reservation").noul() > 0.5);
+        assertTrue(response.answers().get("cost").noul() > 0.5);
+        assertTrue(response.answers().get("weather").noul() < 0.5);
+        assertTrue(response.answers().get("general").noul() < 0.5);
+    }
+
+    @Test
     void evaluateReturnsAnAnswerPerQuestion() {
         JevResponse response = client.evaluate(new JevRequest(
                 "weather forecast please",

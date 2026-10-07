@@ -11,8 +11,6 @@ public record TripResponse(
         String route,
         List<String> routes,
         String routingMode,
-        String rawChoice,
-        Double confidence,
         String backend,
         String model,
         boolean live

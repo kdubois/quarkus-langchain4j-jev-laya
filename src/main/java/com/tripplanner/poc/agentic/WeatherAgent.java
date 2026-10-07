@@ -17,9 +17,9 @@ public interface WeatherAgent {
             practical driving or trip implications where relevant. Answer directly, do not ask the
             customer to restate the question.
 
-            Customer request: {request}
+            Customer request: {{request}}
             """)
-    @Agent(description = "Answers weather and forecast questions for the trip or destination",
+    @Agent(name = "weather", description = "Answers weather and forecast questions for the trip or destination",
            outputKey = "reply")
     @OutputGuardrails(value = JevReplyGuardrail.class, maxRetries = 2)
     String answer(String request);

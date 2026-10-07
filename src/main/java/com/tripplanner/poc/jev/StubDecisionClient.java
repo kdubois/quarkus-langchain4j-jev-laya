@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Deterministic, offline stand-in for a decision model. It applies simple keyword and length
@@ -145,6 +146,13 @@ public class StubDecisionClient implements DecisionClient {
         if (questionId.startsWith("needs_")) {
             double value = keywordScore(state, questionId.substring("needs_".length())) > 0 ? 0.9 : 0.1;
             return new JevAnswer("noul", null, value, null, null, null, 0.9);
+        }
+        if (Set.of("reservation", "weather", "cost", "general").contains(questionId)) {
+            boolean matches = "general".equals(questionId)
+                    ? keywordScore(state, "reservation") + keywordScore(state, "weather")
+                            + keywordScore(state, "cost") == 0
+                    : keywordScore(state, questionId) > 0;
+            return new JevAnswer("noul", null, matches ? 0.9 : 0.1, null, null, null, 0.9);
         }
         String lower = state.toLowerCase(Locale.ROOT);
         boolean problematic = lower.contains("todo") || lower.contains("null")

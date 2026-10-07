@@ -38,10 +38,12 @@ public class TripResource {
                     .entity(Map.of("error", "missing_request", "message", "'request' is required."))
                     .build();
         }
+        routeAudit.beginRequest();
         String reply;
         try {
             reply = tripAdvisorSystem.planTrip(request);
         } catch (RuntimeException e) {
+            routeAudit.clearRequest();
             if (!isGuardrailRejection(e)) {
                 throw e;
             }
@@ -51,7 +53,8 @@ public class TripResource {
                             "message", "The drafted reply was rejected by the reply guardrail after all retries."))
                     .build();
         }
-        RouteAudit.AuditEntry decisionEntry = routeAudit.latest();
+        RouteAudit.AuditEntry decisionEntry = routeAudit.current();
+        routeAudit.clearRequest();
         // The backend/model/live fields report the decision backend that actually answered the
         // request (from the audit entry), which may be the stub even when a real model is
         // configured. Falls back to the configured backend if no audit entry exists.
@@ -65,8 +68,6 @@ public class TripResource {
                 decisionEntry == null ? null : decisionEntry.route(),
                 decisionEntry == null ? null : decisionEntry.routes(),
                 decisionEntry == null ? null : decisionEntry.mode(),
-                decisionEntry == null ? null : decisionEntry.rawChoice(),
-                decisionEntry == null ? null : decisionEntry.confidence(),
                 effectiveBackend,
                 model,
                 !"stub".equals(effectiveBackend));

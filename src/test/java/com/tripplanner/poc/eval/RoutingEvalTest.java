@@ -2,10 +2,8 @@ package com.tripplanner.poc.eval;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tripplanner.poc.agentic.JevRouter;
-import com.tripplanner.poc.agentic.JevRouter.RouteDecision;
-import com.tripplanner.poc.agentic.JevRouter.RoutingPolicy;
 import com.tripplanner.poc.jev.JevAnswer;
+import com.tripplanner.poc.jev.JevQuestion;
 import com.tripplanner.poc.jev.JevRequest;
 import com.tripplanner.poc.jev.JevResponse;
 import org.junit.jupiter.api.Test;
@@ -20,24 +18,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * Runs the labelled request set in {@code routing-eval.json} against a live decision model and
- * compares three routing policies: Choice only, a Choice fast path (the Choice decides alone when
- * its confidence is high, the Nouls otherwise), and the policy {@link JevRouter} uses (Nouls first,
- * Choice when no Noul passes), over a range of thresholds. Each request is sent to the model once,
- * with the same questions {@link JevRouter} asks; the policies are then applied offline to those
- * answers.
+ * Evaluates the labelled request set against the four yes/no questions used by
+ * {@code DecisionRouterPlanner}. Each route activates when its probability meets the tested
+ * threshold. If no route activates, the application falls back to general.
  *
  * Opt-in, because it calls a live model:
  * <ul>
  *   <li>Jev (paid API): {@code TYPESAFE_API_KEY=... ./mvnw test -Dtest=RoutingEvalTest -Drouting.eval=true}</li>
+ *   <li>Kev (local server): add {@code -Drouting.eval.backend=kev}, and
+ *       {@code -Drouting.eval.kev-url=...} if it is not on {@code http://localhost:8009}</li>
  *   <li>Laya (sidecar in {@code laya-sidecar/}): add {@code -Drouting.eval.backend=laya}, and
  *       {@code -Drouting.eval.laya-url=...} if it is not on {@code http://localhost:8100}</li>
  * </ul>
@@ -45,6 +44,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  */
 @EnabledIfSystemProperty(named = "routing.eval", matches = "true")
 class RoutingEvalTest {
+
+    private static final List<String> ROUTES = List.of("reservation", "weather", "cost", "general");
+    private static final double[] THRESHOLDS = {0.3, 0.4, 0.5, 0.6, 0.7};
+    private static final double REPORT_THRESHOLD = 0.5;
 
     record Item(String group, String request, List<String> expected, List<List<String>> acceptable) {
 
@@ -60,14 +63,12 @@ class RoutingEvalTest {
     record Observation(Item item, Map<String, JevAnswer> answers, long millis) {}
 
     private final ObjectMapper mapper = new ObjectMapper();
-    // HTTP/1.1: over plain http the default HTTP/2 client attempts an h2c upgrade, and the uvicorn
-    // sidecar then receives the request without its body.
+    // HTTP/1.1 avoids an h2c upgrade that can cause the uvicorn sidecar to receive no request body.
     private final HttpClient http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
-
     private final String backend = System.getProperty("routing.eval.backend", "jev");
 
     @Test
-    void evaluateRoutingPolicies() throws Exception {
+    void evaluateThresholdRouting() throws Exception {
         String apiKey = System.getenv("TYPESAFE_API_KEY");
         if (backend.equals("jev")) {
             assertFalse(apiKey == null || apiKey.isBlank(), "TYPESAFE_API_KEY must be set");
@@ -90,33 +91,39 @@ class RoutingEvalTest {
         StringBuilder report = new StringBuilder();
         report.append("# Routing eval\n\n")
                 .append("Model: `").append(servedModel).append("`, ").append(items.size()).append(" requests, ")
-                .append("median ").append(backend).append(" latency ").append(medianMillis(observations)).append(" ms.\n\n");
+                .append("median ").append(backend).append(" latency ").append(medianMillis(observations)).append(" ms.\n\n")
+                .append("Each route activates when its yes/no probability is greater than or equal to the threshold. ")
+                .append("When none activates, the application routes to `general` as its fallback.\n\n");
 
-        report.append("## Policies\n\n| Policy | single | indirect | multi | general | total |\n|---|---|---|---|---|---|\n");
-        report.append(row("Choice only", observations, o -> List.of(JevRouter.normalize(choice(o).choice()))));
-        for (double fast : new double[] {0.7, 0.8, 0.9}) {
-            String label = String.format(Locale.ROOT, "Choice fast path (confidence ≥ %.1f), then Noul > 0.5", fast);
-            report.append(row(label, observations, o -> fastPath(o, fast, 0.5)));
-        }
-        for (double threshold : new double[] {0.3, 0.4, 0.5, 0.6, 0.7}) {
-            RoutingPolicy policy = new RoutingPolicy(threshold);
-            String label = String.format(Locale.ROOT, "Nouls first (Noul > %.1f), then Choice", threshold);
-            report.append(row(label, observations, o -> decide(o, policy).routes()));
+        report.append("## Threshold accuracy\n\n")
+                .append("| Threshold | single | indirect | multi | general | total | fallbacks |\n")
+                .append("|---:|---:|---:|---:|---:|---:|---:|\n");
+        for (double threshold : THRESHOLDS) {
+            report.append(row(threshold, observations,
+                    o -> routes(o, threshold)));
         }
 
-        report.append("\n## Per request (Nouls first, Noul > 0.5)\n\n")
-                .append("| Request | Expected | Choice (confidence) | Noul res / wea / cost | Routed | OK |\n|---|---|---|---|---|---|\n");
-        for (Observation o : observations) {
-            Map<String, Double> needs = JevRouter.needs(o.answers());
-            RouteDecision decision = decide(o, RoutingPolicy.DEFAULT);
-            report.append(String.format(Locale.ROOT, "| %s | %s | %s (%.2f) | %.2f / %.2f / %.2f | %s | %s |%n",
-                    o.item().request(), String.join("+", o.item().expected()),
-                    choice(o).choice(), choice(o).confidenceOrZero(),
-                    needs.getOrDefault("reservation", -1.0), needs.getOrDefault("weather", -1.0), needs.getOrDefault("cost", -1.0),
-                    String.join("+", decision.routes()), o.item().accepts(decision.routes()) ? "yes" : "**no**"));
+        report.append("\n## Per request (threshold ≥ ")
+                .append(String.format(Locale.ROOT, "%.1f", REPORT_THRESHOLD))
+                .append(")\n\n| Request | Expected | Reservation | Weather | Cost | General | Routed | OK |\n")
+                .append("|---|---|---:|---:|---:|---:|---|---|\n");
+        for (Observation observation : observations) {
+            List<String> routed = routes(observation, REPORT_THRESHOLD);
+            boolean fallback = ROUTES.stream().allMatch(route -> !activates(observation, route, REPORT_THRESHOLD));
+            report.append(String.format(Locale.ROOT,
+                    "| %s | %s | %s | %s | %s | %s | %s%s | %s |%n",
+                    observation.item().request(), String.join("+", observation.item().expected()),
+                    probabilityText(observation, "reservation"), probabilityText(observation, "weather"),
+                    probabilityText(observation, "cost"), probabilityText(observation, "general"),
+                    String.join("+", routed), fallback ? " (fallback)" : "",
+                    observation.item().accepts(routed) ? "yes" : "**no**"));
         }
-        long fanOuts = observations.stream().filter(o -> decide(o, RoutingPolicy.DEFAULT).isFanOut()).count();
-        report.append("\nFan-outs: ").append(fanOuts).append(" of ").append(observations.size()).append(" requests.\n");
+        long fallbacks = observations.stream()
+                .filter(o -> ROUTES.stream().noneMatch(route -> activates(o, route, REPORT_THRESHOLD)))
+                .count();
+        report.append("\nGeneral fallbacks at threshold ")
+                .append(String.format(Locale.ROOT, "%.1f", REPORT_THRESHOLD))
+                .append(": ").append(fallbacks).append(" of ").append(observations.size()).append(" requests.\n");
 
         Path out = Path.of("target", "routing-eval-" + backend + ".md");
         Files.writeString(out, report);
@@ -125,12 +132,23 @@ class RoutingEvalTest {
     }
 
     private JevResponse call(String apiKey, String state) throws Exception {
-        JevRequest body = new JevRequest(state, backend.equals("jev") ? "jev-latest" : "laya", JevRouter.questions());
-        HttpRequest.Builder request = backend.equals("jev")
-                ? HttpRequest.newBuilder(URI.create("https://api.typesafe.ai/v1/systemone"))
-                        .header("Authorization", "Bearer " + apiKey)
-                : HttpRequest.newBuilder(URI.create(
-                        System.getProperty("routing.eval.laya-url", "http://localhost:8100") + "/v1/decision"));
+        String model = switch (backend) {
+            case "jev" -> "jev-latest";
+            case "kev" -> "kev-latest";
+            case "laya" -> "laya";
+            default -> throw new IllegalArgumentException("Unsupported eval backend: " + backend);
+        };
+        String baseUrl = switch (backend) {
+            case "jev" -> "https://api.typesafe.ai";
+            case "kev" -> System.getProperty("routing.eval.kev-url", "http://localhost:8009");
+            case "laya" -> System.getProperty("routing.eval.laya-url", "http://localhost:8100");
+            default -> throw new IllegalArgumentException("Unsupported eval backend: " + backend);
+        };
+        JevRequest body = new JevRequest(state, model, questions());
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/systemone"));
+        if (backend.equals("jev")) {
+            request.header("Authorization", "Bearer " + apiKey);
+        }
         HttpResponse<String> response = http.send(request
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
@@ -141,26 +159,41 @@ class RoutingEvalTest {
         return mapper.readValue(response.body(), JevResponse.class);
     }
 
-    private static JevAnswer choice(Observation o) {
-        return o.answers().get("route");
+    private static Map<String, JevQuestion> questions() {
+        Map<String, String> descriptions = new LinkedHashMap<>();
+        descriptions.put("reservation", "Handles booking, modifying, cancelling, or questions about a reservation");
+        descriptions.put("weather", "Answers weather and forecast questions for the trip or destination");
+        descriptions.put("cost", "Answers pricing, total cost, budget, or fee questions");
+        descriptions.put("general", "Handles only greetings and questions unrelated to reservations, weather, or pricing");
+
+        Map<String, JevQuestion> questions = new LinkedHashMap<>();
+        descriptions.forEach((route, description) -> questions.put(route, JevQuestion.noul(
+                "Should the agent '" + route + "' (" + description + ") handle this request?")));
+        return questions;
     }
 
-    private static RouteDecision decide(Observation o, RoutingPolicy policy) {
-        return JevRouter.decide(choice(o), JevRouter.needs(o.answers()), policy);
+    private static boolean activates(Observation observation, String route, double threshold) {
+        JevAnswer answer = observation.answers().get(route);
+        return answer != null && answer.noul() != null && answer.noul() >= threshold;
     }
 
-    /** The earlier policy, kept here for comparison: a confident Choice decides alone. */
-    private static List<String> fastPath(Observation o, double fastPathConfidence, double threshold) {
-        JevAnswer choice = choice(o);
-        if (choice.confidenceOrZero() >= fastPathConfidence) {
-            return List.of(JevRouter.normalize(choice.choice()));
-        }
-        return decide(o, new RoutingPolicy(threshold)).routes();
+    private static List<String> routes(Observation observation, double threshold) {
+        List<String> activated = ROUTES.stream()
+                .filter(route -> activates(observation, route, threshold))
+                .toList();
+        return activated.isEmpty() ? List.of("general") : activated;
     }
 
-    private static String row(String label, List<Observation> observations,
-                              java.util.function.Function<Observation, List<String>> router) {
-        StringBuilder row = new StringBuilder("| ").append(label).append(" |");
+    private static String probabilityText(Observation observation, String route) {
+        JevAnswer answer = observation.answers().get(route);
+        return answer == null || answer.noul() == null
+                ? "—" : String.format(Locale.ROOT, "%.2f", answer.noul());
+    }
+
+    private static String row(double threshold, List<Observation> observations,
+                              Function<Observation, List<String>> router) {
+        StringBuilder row = new StringBuilder("| ")
+                .append(String.format(Locale.ROOT, "%.1f", threshold)).append(" |");
         int total = 0;
         for (String group : List.of("single", "indirect", "multi", "general")) {
             List<Observation> inGroup = observations.stream().filter(o -> o.item().group().equals(group)).toList();
@@ -168,7 +201,11 @@ class RoutingEvalTest {
             total += (int) ok;
             row.append(' ').append(ok).append('/').append(inGroup.size()).append(" |");
         }
-        return row.append(' ').append(total).append('/').append(observations.size()).append(" |\n").toString();
+        long fallbacks = observations.stream()
+                .filter(o -> ROUTES.stream().noneMatch(route -> activates(o, route, threshold)))
+                .count();
+        return row.append(' ').append(total).append('/').append(observations.size()).append(" | ")
+                .append(fallbacks).append(" |").append('\n').toString();
     }
 
     private static long medianMillis(List<Observation> observations) {

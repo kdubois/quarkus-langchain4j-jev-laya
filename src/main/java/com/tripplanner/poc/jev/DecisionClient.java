@@ -5,16 +5,15 @@ import java.util.Map;
 /**
  * Abstraction over a System One *decision* model. The same three primitives (Choice, Score, Noul)
  * and the same request/answer shape are shared by all backends, so the agentic system is written
- * once against this interface and can be pointed at any of:
+ * once against this interface and can be pointed at either of:
  *
  * <ul>
- *   <li>{@link JevApiClient} — the hosted TypeSafe Jev endpoint over HTTP.</li>
- *   <li>{@link LayaDecisionClient} — a self-hosted Laya sidecar over HTTP (open source, Apache 2.0).</li>
+ *   <li>{@link ActiveDecisionClient} — the configured Jev, Kev, or Laya core decision model.</li>
  *   <li>{@link StubDecisionClient} — a deterministic offline stand-in.</li>
  * </ul>
  *
  * The active backend is selected by configuration ({@code decision.backend} = {@code jev} |
- * {@code laya} | {@code stub}); see {@link ActiveDecisionClient}.
+ * {@code kev} | {@code laya} | {@code stub}); see {@link ActiveDecisionClient}.
  */
 public interface DecisionClient {
 

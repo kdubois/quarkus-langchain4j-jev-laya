@@ -1,11 +1,10 @@
 """Laya decision sidecar.
 
-A tiny FastAPI service that wraps the Laya System One decision model and exposes it with the same
-request/response shape the Quarkus app already speaks. The Quarkus side's LayaDecisionClient simply
-POSTs a JevRequest here and reads the JevResponse back, so the agentic system is identical no
-matter whether the backend is the hosted Jev API, this Laya sidecar, or the offline stub.
+A tiny FastAPI service that wraps the Laya System One decision model and exposes the request and
+response shape used by LangChain4j's TypeSafe decision model. The Quarkus application can therefore
+select this server by configuration, just as it selects hosted Jev or local Kev.
 
-Request  (POST /v1/decision):
+Request  (POST /v1/systemone; /v1/decision remains as a compatibility alias):
     {
       "state": "<text or JSON the model decides over>",
       "model": "<ignored, for compatibility with the Jev client>",
@@ -79,6 +78,7 @@ def health():
     return {"status": "ok", "model": LAYA_MODEL, "loaded": _agent is not None}
 
 
+@app.post("/v1/systemone")
 @app.post("/v1/decision")
 def decision(req: DecisionRequest):
     agent = get_agent()

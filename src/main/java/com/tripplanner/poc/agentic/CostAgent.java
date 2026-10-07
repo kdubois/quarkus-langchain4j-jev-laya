@@ -17,9 +17,9 @@ public interface CostAgent {
             Distinguish base rates, optional extras and fees. If the trip details are incomplete,
             state your assumptions and keep figures clearly indicative.
 
-            Customer request: {request}
+            Customer request: {{request}}
             """)
-    @Agent(description = "Answers pricing, total cost, budget, or fee questions",
+    @Agent(name = "cost", description = "Answers pricing, total cost, budget, or fee questions",
            outputKey = "reply")
     @OutputGuardrails(value = JevReplyGuardrail.class, maxRetries = 2)
     String answer(String request);

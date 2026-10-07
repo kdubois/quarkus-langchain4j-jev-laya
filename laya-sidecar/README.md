@@ -3,11 +3,9 @@
 A minimal FastAPI service that hosts the [Laya](https://github.com/NandhaKishorM/laya) System One
 decision model and exposes it with the request/response shape the Quarkus app already speaks.
 
-Laya is a Python library with no server of its own, so to use it from the Java app you run this sidecar
-and point the app at it (`decision.backend=laya`, `laya.endpoint=...`). The sidecar forwards each
-request to `Agent.predict()` and returns Laya's output verbatim, because Laya's answer schema matches
-the Jev one (`choice`/`score`/`noul` + `probabilities` + `confidence`) that the Java side
-deserializes into `JevResponse`/`JevAnswer`.
+Laya is a Python library with no server of its own, so to use it from the Java app you run this
+sidecar and set `decision.backend=laya`. The sidecar forwards each request to `Agent.predict()` and
+returns Laya's output in the TypeSafe System One shape used by LangChain4j.
 
 ## Run the real sidecar
 
@@ -36,7 +34,8 @@ Then start the Quarkus app against it:
 
 ## Endpoints
 
-- `POST /v1/decision` — the decision endpoint the app calls. Body is `{ state, model, questions }`.
+- `POST /v1/systemone` — the decision endpoint the app calls. Body is `{ state, model, questions }`.
+- `POST /v1/decision` — compatibility alias for older versions of this project.
 - `GET /health` — `{"status":"ok","model":...,"loaded":true|false}`.
 
 ## Mock sidecar (offline, no model download)
@@ -47,7 +46,7 @@ exercise the Java Laya client path without installing `laya` or downloading the 
 ```bash
 python3 mock_server.py            # serves on 127.0.0.1:8110
 # then:
-./mvnw "-Ddecision.backend=laya" "-Dlaya.endpoint=http://localhost:8110/v1/decision" quarkus:dev
+LAYA_BASE_URL=http://localhost:8110 ./mvnw "-Ddecision.backend=laya" quarkus:dev
 ```
 
 It always routes to `weather` for routing questions, so it is only for verifying the HTTP round-trip

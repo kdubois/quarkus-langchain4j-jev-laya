@@ -16,9 +16,9 @@ public interface GeneralAgent {
             Answer the customer's question helpfully and concisely. Keep it to the point and offer
             to help with reservations, weather or pricing when it is relevant.
 
-            Customer request: {request}
+            Customer request: {{request}}
             """)
-    @Agent(description = "Handles greetings and general questions about the service",
+    @Agent(name = "general", description = "Handles only greetings and questions unrelated to reservations, weather, or pricing",
            outputKey = "reply")
     @OutputGuardrails(value = JevReplyGuardrail.class, maxRetries = 2)
     String answer(String request);

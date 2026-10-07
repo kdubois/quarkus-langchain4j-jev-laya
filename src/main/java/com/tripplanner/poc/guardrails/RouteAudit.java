@@ -1,6 +1,5 @@
 package com.tripplanner.poc.guardrails;
 
-import com.tripplanner.poc.agentic.JevRouter.RouteDecision;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.Instant;
@@ -16,8 +15,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 @ApplicationScoped
 public class RouteAudit {
 
-    public record AuditEntry(Instant timestamp, String request, List<String> routes, String rawChoice,
-                             Double confidence, String mode, String effectiveBackend) {
+    public record AuditEntry(Instant timestamp, String request, List<String> routes,
+                             String mode, String effectiveBackend) {
 
         /** The primary route (the first specialist called). */
         public String route() {
@@ -28,13 +27,27 @@ public class RouteAudit {
     private static final int MAX_ENTRIES = 100;
 
     private final Deque<AuditEntry> entries = new ConcurrentLinkedDeque<>();
+    private final ThreadLocal<AuditEntry> current = new ThreadLocal<>();
 
-    public void log(String request, RouteDecision decision, String effectiveBackend) {
-        entries.addLast(new AuditEntry(Instant.now(), request, decision.routes(), decision.rawChoice(),
-                decision.confidence(), decision.mode(), effectiveBackend));
+    public void beginRequest() {
+        current.remove();
+    }
+
+    public void log(String request, List<String> routes, String mode, String effectiveBackend) {
+        AuditEntry entry = new AuditEntry(Instant.now(), request, List.copyOf(routes), mode, effectiveBackend);
+        current.set(entry);
+        entries.addLast(entry);
         while (entries.size() > MAX_ENTRIES) {
             entries.pollFirst();
         }
+    }
+
+    public AuditEntry current() {
+        return current.get();
+    }
+
+    public void clearRequest() {
+        current.remove();
     }
 
     public AuditEntry latest() {
