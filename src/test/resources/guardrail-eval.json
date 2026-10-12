@@ -1,0 +1,170 @@
+[
+  {
+    "id": "relevance-weather-answer",
+    "guardrail": "relevance",
+    "expected": "pass",
+    "request": "Will it rain in Lisbon next Tuesday?",
+    "reply": "The current forecast calls for rain in Lisbon next Tuesday, so plan for wet roads."
+  },
+  {
+    "id": "relevance-greeting",
+    "guardrail": "relevance",
+    "expected": "pass",
+    "request": "Hi there!",
+    "reply": "Hello! How can I help with your car rental today?"
+  },
+  {
+    "id": "relevance-weather-partial-fanout",
+    "guardrail": "relevance",
+    "expected": "pass",
+    "request": "How much extra is a convertible, and will the weather in Nice be good enough next weekend?",
+    "reply": "The forecast for Nice next weekend is warm and mostly dry, with a small chance of rain on Sunday."
+  },
+  {
+    "id": "relevance-cost-partial-fanout",
+    "guardrail": "relevance",
+    "expected": "pass",
+    "request": "How much extra is a convertible, and will the weather in Nice be good enough next weekend?",
+    "reply": "The convertible upgrade costs 35 euros per day."
+  },
+  {
+    "id": "relevance-clarifying-question",
+    "guardrail": "relevance",
+    "expected": "pass",
+    "request": "Please cancel my booking for Friday.",
+    "reply": "What is the reservation number for the booking you want to cancel?"
+  },
+  {
+    "id": "relevance-opening-hours",
+    "guardrail": "relevance",
+    "expected": "pass",
+    "request": "What are your opening hours at Lisbon airport?",
+    "reply": "The Lisbon airport desk is open 24 hours a day."
+  },
+  {
+    "id": "relevance-weather-off-topic-price",
+    "guardrail": "relevance",
+    "expected": "retry",
+    "request": "Will it rain in Lisbon next Tuesday?",
+    "reply": "Our SUVs start at 65 euros per day and an additional driver costs 12 euros."
+  },
+  {
+    "id": "relevance-cancellation-off-topic",
+    "guardrail": "relevance",
+    "expected": "retry",
+    "request": "Please cancel my booking for Friday.",
+    "reply": "There are several excellent seafood restaurants near the airport."
+  },
+  {
+    "id": "relevance-evasive",
+    "guardrail": "relevance",
+    "expected": "retry",
+    "request": "How much does full insurance cost?",
+    "reply": "I am unable to provide any useful information about that."
+  },
+  {
+    "id": "relevance-generic-acknowledgement",
+    "guardrail": "relevance",
+    "expected": "retry",
+    "request": "Can I move my pickup time from 9 to 11?",
+    "reply": "Thank you for getting in touch. We appreciate your message."
+  },
+  {
+    "id": "relevance-cost-off-topic-weather",
+    "guardrail": "relevance",
+    "expected": "retry",
+    "request": "What is the young-driver surcharge?",
+    "reply": "The weather in Porto should be sunny this weekend."
+  },
+  {
+    "id": "relevance-booking-deflection",
+    "guardrail": "relevance",
+    "expected": "retry",
+    "request": "What documents do I need when I pick up the car?",
+    "reply": "Please visit our website for more information."
+  },
+  {
+    "id": "completeness-weather-and-cost",
+    "guardrail": "completeness",
+    "expected": "pass",
+    "request": "How much extra is a convertible, and will the weather in Nice be good enough next weekend?",
+    "reply": "The convertible upgrade costs 35 euros per day. Nice should be warm and mostly dry next weekend, with a small chance of rain on Sunday."
+  },
+  {
+    "id": "completeness-booking-and-cost",
+    "guardrail": "completeness",
+    "expected": "pass",
+    "request": "Book me a car for Saturday and tell me what it will cost with full insurance.",
+    "reply": "An SUV is available for Saturday. The rental is 80 euros per day and full insurance adds 20 euros per day."
+  },
+  {
+    "id": "completeness-weather-and-pickup",
+    "guardrail": "completeness",
+    "expected": "pass",
+    "request": "Should I pick up the car Friday or Saturday given the storm forecast?",
+    "reply": "The storm is expected on Saturday, so Friday is the safer pickup day. A Friday pickup is available."
+  },
+  {
+    "id": "completeness-single-weather",
+    "guardrail": "completeness",
+    "expected": "pass",
+    "request": "Will it rain in Lisbon next Tuesday?",
+    "reply": "The forecast calls for rain in Lisbon next Tuesday."
+  },
+  {
+    "id": "completeness-greeting",
+    "guardrail": "completeness",
+    "expected": "pass",
+    "request": "Hi there!",
+    "reply": "Hello! How can I help with your car rental today?"
+  },
+  {
+    "id": "completeness-direct-but-unverified",
+    "guardrail": "completeness",
+    "expected": "pass",
+    "request": "What are your opening hours at Lisbon airport?",
+    "reply": "The Lisbon airport desk is open 24 hours a day."
+  },
+  {
+    "id": "completeness-missing-cost",
+    "guardrail": "completeness",
+    "expected": "retry",
+    "request": "How much extra is a convertible, and will the weather in Nice be good enough next weekend?",
+    "reply": "Nice should be warm and mostly dry next weekend, with a small chance of rain on Sunday."
+  },
+  {
+    "id": "completeness-missing-weather",
+    "guardrail": "completeness",
+    "expected": "retry",
+    "request": "How much extra is a convertible, and will the weather in Nice be good enough next weekend?",
+    "reply": "The convertible upgrade costs 35 euros per day."
+  },
+  {
+    "id": "completeness-missing-cost-after-booking",
+    "guardrail": "completeness",
+    "expected": "retry",
+    "request": "Book me a car for Saturday and tell me what it will cost with full insurance.",
+    "reply": "An SUV is available for Saturday and I can reserve it for you."
+  },
+  {
+    "id": "completeness-off-topic",
+    "guardrail": "completeness",
+    "expected": "retry",
+    "request": "Will it rain in Lisbon next Tuesday?",
+    "reply": "Our SUVs start at 65 euros per day."
+  },
+  {
+    "id": "completeness-evasive",
+    "guardrail": "completeness",
+    "expected": "retry",
+    "request": "How much does full insurance cost?",
+    "reply": "I am unable to provide any useful information about that."
+  },
+  {
+    "id": "completeness-missing-pickup-answer",
+    "guardrail": "completeness",
+    "expected": "retry",
+    "request": "Should I pick up the car Friday or Saturday given the storm forecast?",
+    "reply": "A storm is expected on Saturday."
+  }
+]

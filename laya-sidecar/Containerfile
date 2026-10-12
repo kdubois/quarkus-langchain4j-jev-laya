@@ -1,0 +1,23 @@
+# Laya decision sidecar (main.py) for Linux containers.
+FROM registry.access.redhat.com/ubi9/python-312-minimal:latest
+
+# PyTorch wheel index. The CPU index keeps the image small. For an NVIDIA GPU host, build with
+# --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+# The base image already runs as the non-root user 1001 with HOME=/opt/app-root/src.
+COPY --chown=1001:0 requirements.txt .
+RUN pip install --no-cache-dir --index-url "${TORCH_INDEX_URL}" torch \
+ && pip install --no-cache-dir -r requirements.txt
+
+COPY --chown=1001:0 main.py .
+
+# The checkpoint downloads from Hugging Face on first start. Mount a volume here to keep it.
+ENV HF_HOME=/opt/app-root/src/.cache/huggingface
+
+USER 1001
+EXPOSE 8100
+
+# Binding to 0.0.0.0 is needed inside the container so the published port is reachable. Publish
+# the port on the host's loopback only (see compose.yaml).
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8100"]

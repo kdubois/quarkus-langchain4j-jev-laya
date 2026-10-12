@@ -1,0 +1,30 @@
+# Kev decision server (https://github.com/jaredpalmer/kev) for Linux containers.
+#
+# Kev ships its own /v1/systemone server (kev.serve), so this image only installs a pinned Kev
+# release and runs it. No Kev source is vendored into this repository.
+#
+# Note: inside a container Kev runs on PyTorch (CPU by default). On an Apple Silicon Mac, running
+# Kev natively is much faster because it uses MLX; see README.md.
+FROM registry.access.redhat.com/ubi9/python-312-minimal:latest
+
+# Kev release tag to install from GitHub.
+ARG KEV_REF=kev-1.0
+# PyTorch wheel index. The CPU index keeps the image small. For an NVIDIA GPU host, build with
+# --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+# The base image already runs as the non-root user 1001 with HOME=/opt/app-root/src.
+RUN pip install --no-cache-dir --index-url "${TORCH_INDEX_URL}" "torch>=2.6,<2.9" \
+ && pip install --no-cache-dir \
+      "kev[serve] @ https://github.com/jaredpalmer/kev/archive/refs/tags/${KEV_REF}.tar.gz"
+
+# Model weights download from Hugging Face on first start. Mount a volume here to keep them.
+ENV HF_HOME=/opt/app-root/src/.cache/huggingface \
+    KEV_RUN=jaredpalmer/kev-4b@v1.0
+
+USER 1001
+EXPOSE 8009
+
+# Binding to 0.0.0.0 is needed inside the container so the published port is reachable. Publish
+# the port on the host's loopback only (see compose.yaml).
+CMD ["sh", "-c", "exec python -m kev.serve --run \"$KEV_RUN\" --host 0.0.0.0 --port 8009"]

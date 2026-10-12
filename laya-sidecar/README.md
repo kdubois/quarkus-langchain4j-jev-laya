@@ -18,6 +18,18 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8100
 ```
 
+### Or run it as a container
+
+From the project root:
+
+```bash
+podman compose up laya
+```
+
+The image uses `ubi9/python-312-minimal`, runs as a non-root user, and installs CPU PyTorch. For an
+NVIDIA GPU host, build with `--build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128`.
+The checkpoint downloads on first start into the `hf-cache` volume.
+
 Then start the Quarkus app against it:
 
 ```bash

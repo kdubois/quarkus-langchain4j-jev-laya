@@ -3,7 +3,6 @@ package com.tripplanner.poc.agentic;
 import dev.langchain4j.agentic.declarative.ActivationCondition;
 import dev.langchain4j.agentic.declarative.ConditionalAgent;
 import dev.langchain4j.agentic.declarative.Output;
-import dev.langchain4j.service.V;
 
 import java.util.Map;
 
@@ -15,19 +14,17 @@ public interface GeneralFallback {
             description = "Uses the general assistant when no specialist reaches the routing threshold",
             outputKey = "routedReplies",
             subAgents = GeneralAgent.class)
-    Map<String, String> apply(
-            @V("request") String request,
-            @V("specialistReplies") Map<String, String> specialistReplies);
+    Map<String, String> apply(String request, Map<String, String> specialistReplies);
 
     @ActivationCondition(GeneralAgent.class)
-    static boolean needsGeneral(@V("specialistReplies") Map<String, String> specialistReplies) {
+    static boolean needsGeneral(Map<String, String> specialistReplies) {
         return specialistReplies == null || specialistReplies.isEmpty();
     }
 
     @Output
     static Map<String, String> replies(
-            @V("specialistReplies") Map<String, String> specialistReplies,
-            @V("reply") String generalReply) {
+            Map<String, String> specialistReplies,
+            String generalReply) {
         if (specialistReplies != null && !specialistReplies.isEmpty()) {
             return specialistReplies;
         }

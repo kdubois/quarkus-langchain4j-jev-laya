@@ -35,8 +35,8 @@ audit flag.
 Set `decision.backend` to one of these values:
 
 - `jev` uses TypeSafe's hosted Jev API. It reads `TYPESAFE_API_KEY`, with `JEV_API_KEY` as a fallback.
-- `kev` uses a local or remote [Kev](https://github.com/jaredpalmer/kev) server. The default base URL
-  is `http://localhost:8009`.
+- `kev` uses a local or remote [Kev](https://github.com/jaredpalmer/kev) server, natively or through
+  the [Kev sidecar container](kev-sidecar/README.md). The default base URL is `http://localhost:8009`.
 - `laya` uses the included [Laya sidecar](laya-sidecar/README.md). The default base URL is
   `http://localhost:8100`.
 - `stub` uses a deterministic local implementation for development and tests.
@@ -57,21 +57,29 @@ export TYPESAFE_API_KEY=ts-...
 
 ## Run with Kev
 
-Kev requires Python 3.12 or 3.13 and `uv`. The Kev project recommends its 4B model as the starting
-point, and documents it for Macs with at least 32 GB of memory. MLX is selected automatically on
-Apple Silicon. Start it from a Kev checkout:
+The Kev project recommends its 4B model as the starting point, and documents it for Macs with at
+least 32 GB of memory. On Apple Silicon, run Kev natively so it can use MLX. This requires Python
+3.12 or 3.13 and `uv`:
 
 ```bash
-git clone https://github.com/jaredpalmer/kev.git
+git clone --branch kev-1.0 https://github.com/jaredpalmer/kev.git
 cd kev
 uv sync --extra serve
 uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b@v1.0 --port 8009
 ```
 
+On Linux, or when you prefer a container, use the [Kev sidecar](kev-sidecar/README.md). It runs on
+PyTorch, so on a Mac it is much slower than the native MLX server:
+
+```bash
+podman compose up kev
+```
+
 Use `jaredpalmer/kev-0.8b@v1.0` for a smaller smoke-test model. Its base model downloads about 1.8
 GB, but Kev describes this variant as the size-first option with lower accuracy. Later starts reuse
-the model files from the Hugging Face cache. In this application, 0.8B routed requests correctly but
-gave false rejections on the merged-reply guardrail, so use 4B or hosted Jev when testing guardrails.
+the model files from the Hugging Face cache. In this application's evaluation, 0.8B routed 9 of 28
+requests correctly at the default threshold and scored 20 of 24 across the two reply guardrails.
+Use 4B or hosted Jev when testing the full workflow.
 
 Then start this application in another terminal:
 
@@ -92,6 +100,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8100
 ```
+
+Or run it as a container with `podman compose up laya`.
 
 Then start the application in another terminal:
 
@@ -176,3 +186,8 @@ The routing evaluation is opt-in. It sends the labelled cases from
   records the planner's decision responses without changing them.
 - [`RouteAudit`](src/main/java/com/tripplanner/poc/guardrails/RouteAudit.java) keeps recent routing
   decisions in memory.
+- [`kev-sidecar/`](kev-sidecar/README.md) builds a container for Kev's own server from a pinned Kev
+  release.
+- [`laya-sidecar/`](laya-sidecar/README.md) wraps Laya in a FastAPI server and builds its container.
+- [`compose.yaml`](compose.yaml) starts either sidecar with `podman compose up kev` or
+  `podman compose up laya`.

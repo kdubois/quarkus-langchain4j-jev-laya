@@ -1,0 +1,31 @@
+# Decision-model sidecars for the trip planner. Start one or both:
+#
+#   podman compose up kev     # Kev on http://localhost:8009
+#   podman compose up laya    # Laya on http://localhost:8100
+#
+# Ports are published on the host's loopback interface only.
+services:
+  kev:
+    build:
+      context: ./kev-sidecar
+      dockerfile: Containerfile
+    image: kev-sidecar:local
+    ports:
+      - "127.0.0.1:8009:8009"
+    environment:
+      KEV_RUN: ${KEV_RUN:-jaredpalmer/kev-4b@v1.0}
+    volumes:
+      - hf-cache:/opt/app-root/src/.cache/huggingface
+
+  laya:
+    build:
+      context: ./laya-sidecar
+      dockerfile: Containerfile
+    image: laya-sidecar:local
+    ports:
+      - "127.0.0.1:8100:8100"
+    volumes:
+      - hf-cache:/opt/app-root/src/.cache/huggingface
+
+volumes:
+  hf-cache:
